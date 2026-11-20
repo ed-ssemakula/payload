@@ -479,9 +479,14 @@ export const renderListView = async (
   if (isHierarchyCollection && isHierarchyView) {
     // Extract typeFilter from searchParams (comma-separated list of collection slugs)
     const typeFilterParam = searchParams?.typeFilter
+    const isFolderHierarchy =
+      typeof collectionConfig.hierarchy === 'object' &&
+      collectionConfig.hierarchy.allowHasMany === false
     const typeFilter =
-      typeof typeFilterParam === 'string' && typeFilterParam.length > 0
-        ? typeFilterParam.split(',')
+      typeof typeFilterParam === 'string' && (typeFilterParam.length > 0 || isFolderHierarchy)
+        ? isFolderHierarchy
+          ? typeFilterParam.split(',').filter(Boolean)
+          : typeFilterParam.split(',')
         : undefined
 
     const canUseFlatContents =

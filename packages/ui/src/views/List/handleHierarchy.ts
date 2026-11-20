@@ -105,11 +105,12 @@ export const handleHierarchy = async ({
         }
       : { [parentFieldName]: { equals: parentId } }
 
-  // Build type filter condition if typeFilter is provided and collectionSpecific is configured
-  // Filter to folders that allow ANY of the selected types OR are unrestricted
+  // Folder type selection filters documents, not subfolder navigation.
+  // Keep the existing hierarchy-item filter for non-folder collections.
   let typeCondition: Record<string, unknown> | undefined
 
   if (
+    hierarchyConfig.allowHasMany !== false &&
     typeFilter &&
     typeFilter.length > 0 &&
     hierarchyConfig.collectionSpecific &&

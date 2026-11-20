@@ -8,6 +8,8 @@ import {
   canUseFlatFolderContents,
   getFlatFolderContents,
 } from '../../packages/ui/src/views/List/getFlatFolderContents.js'
+// eslint-disable-next-line payload/no-relative-monorepo-imports -- Verify the initial hierarchy page matches the continuation read.
+import { handleHierarchy } from '../../packages/ui/src/views/List/handleHierarchy.js'
 import { test } from '../__helpers/int/vitest.js'
 import { getCurrentDatabaseAdapter } from '../dbAdapters.js'
 import { articlesSlug, folderField, foldersSlug, pagesSlug } from './shared.js'
@@ -164,6 +166,86 @@ test.suite('Flat folder contents', { config: './config.ts' }, () => {
     })
 
     expect(filtered.documents.totalDocs).toBe(0)
+  })
+
+  test('should keep subfolders visible across document type filters and folder views', async ({
+    payload,
+  }) => {
+    const { parent, req } = await setup({ payload })
+    const collectionConfig = payload.collections[foldersSlug].config
+    const baseFilter = { scope: { equals: 'public' as const } }
+
+    for (let index = 0; index < 12; index++) {
+      await payload.create({
+        collection: foldersSlug,
+        data: { name: `Child ${index}`, scope: 'public', [folderField]: parent.id },
+        overrideAccess: true,
+      })
+    }
+    await payload.create({
+      collection: foldersSlug,
+      data: { name: 'Private Child', scope: 'private', [folderField]: parent.id },
+      overrideAccess: true,
+    })
+    await payload.create({
+      collection: pagesSlug,
+      data: { title: 'Visible Page', scope: 'public', visible: true, [folderField]: parent.id },
+      overrideAccess: true,
+    })
+
+    const initial = await handleHierarchy({
+      baseFilter,
+      collectionConfig,
+      collectionSlug: foldersSlug,
+      flat: true,
+      parentId: parent.id,
+      req,
+      typeFilter: [articlesSlug],
+      user: req.user,
+    })
+    const continued = await getFlatFolderContents({
+      args: {
+        collectionSlug: foldersSlug,
+        page: 2,
+        parentID: parent.id,
+        source: 'folders',
+        typeFilter: [articlesSlug],
+      },
+      req,
+    })
+    const fallback = await handleHierarchy({
+      baseFilter,
+      collectionConfig,
+      collectionSlug: foldersSlug,
+      parentId: parent.id,
+      req,
+      typeFilter: [articlesSlug],
+      user: req.user,
+    })
+    const root = await handleHierarchy({
+      baseFilter,
+      collectionConfig,
+      collectionSlug: foldersSlug,
+      parentId: null,
+      req,
+      typeFilter: [articlesSlug],
+      user: req.user,
+    })
+    const foldersOnly = await getFlatFolderContents({
+      args: { collectionSlug: foldersSlug, parentID: parent.id, typeFilter: [] },
+      req,
+    })
+    const folderIDs = [...initial.childrenData.docs, ...continued.folders.docs].map((doc) => doc.id)
+
+    expect(initial.childrenData.totalDocs).toBe(12)
+    expect(initial.childrenData.docs).toHaveLength(10)
+    expect(continued.folders.totalDocs).toBe(12)
+    expect(continued.folders.docs).toHaveLength(2)
+    expect(new Set(folderIDs).size).toBe(12)
+    expect(fallback.childrenData.totalDocs).toBe(12)
+    expect(root.childrenData.docs.map((doc) => doc.id)).toContain(parent.id)
+    expect(foldersOnly.folders.totalDocs).toBe(12)
+    expect(foldersOnly.documents.totalDocs).toBe(0)
   })
 
   test('should hide folders outside the Admin base filter and reject direct access', async ({

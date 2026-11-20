@@ -1,42 +1,13 @@
 @layer payload-default {
-  .flat-folder-contents .table thead {
-    color: var(--color-text);
+  .flat-folder-contents__grids {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacer-4);
+    padding-block: var(--spacer-4);
   }
 
-  .flat-folder-contents__card {
-    position: relative;
-  }
-
-  .flat-folder-contents .document-card__title {
-    display: block;
-    min-height: var(--spacer-4);
-  }
-
-  .flat-folder-contents .document-card__metadata {
-    color: var(--color-text);
-  }
-
-  .flat-folder-contents .document-card__metadata a {
-    display: inline-flex;
-    align-items: center;
-    min-height: var(--spacer-4);
-    color: var(--color-text);
-  }
-
-  .flat-folder-contents__card-selection {
-    position: absolute;
-    z-index: 1;
-    inset-block-start: var(--spacer-2);
-    inset-inline-start: var(--spacer-2);
-    width: var(--spacer-4);
-    height: var(--spacer-4);
-    margin: 0;
-    accent-color: var(--color-bg-brand);
-  }
-
-  .flat-folder-contents__card-selection:focus-visible {
-    outline: var(--stroke-width-medium) solid var(--accessibility-focus-color);
-    outline-offset: var(--stroke-width-small);
+  .flat-folder-contents__grids .card-grid {
+    padding-block: 0;
   }
 
   .flat-folder-contents__more {

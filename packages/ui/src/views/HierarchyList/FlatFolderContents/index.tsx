@@ -30,7 +30,7 @@ import './index.css'
 
 const NameCell: SlotColumn<TableRow>['Cell'] = (props) =>
   props.row._hasChildren !== undefined ? (
-    <ChildNameCell {...props} />
+    <ChildNameCell {...props} isDirectLink />
   ) : (
     <RelatedNameCell {...props} />
   )
@@ -163,6 +163,60 @@ export function FlatFolderContentsView({
     }
   }
 
+  const cardGroups = [
+    { items: rows.slice(0, contents.folders.docs.length), key: 'folders', label: folderLabel },
+    {
+      items: rows.slice(contents.folders.docs.length),
+      key: 'documents',
+      label: t('general:documents'),
+    },
+  ]
+
+  const renderCard = (row: TableRow) => {
+    const isFolder = row._collectionSlug === collectionSlug
+    const config = getEntityConfig({ collectionSlug: row._collectionSlug })
+    const titleField = config.admin.useAsTitle || 'id'
+    const rawTitle = row[titleField]
+    const title =
+      typeof rawTitle === 'string' || typeof rawTitle === 'number'
+        ? String(rawTitle)
+        : String(row.id)
+    const thumbnailSrc = typeof row._thumbnailSrc === 'string' ? row._thumbnailSrc : undefined
+    const editURL = formatAdminURL({
+      adminRoute,
+      path: `/collections/${row._collectionSlug}/${encodeURIComponent(String(row.id))}`,
+    })
+    const folderURL = getHierarchyListURL({
+      adminRoute,
+      collectionSlug,
+      parentFieldName,
+      parentID: row.id,
+    })
+
+    return (
+      <DocumentCard
+        href={isFolder ? folderURL : editURL}
+        isSelected={isSelected({ id: row.id, collectionSlug: row._collectionSlug })}
+        onSelect={
+          isLocked({ id: row.id, collectionSlug: row._collectionSlug })
+            ? undefined
+            : () => toggleRow(row)
+        }
+        placeholder={isFolder ? (HierarchyIcon ?? <FolderIcon />) : <DocumentIcon />}
+        thumbnail={thumbnailSrc ? { alt: '', src: thumbnailSrc } : undefined}
+        title={title}
+      >
+        {isFolder ? (
+          <Link aria-label={t('general:editLabel', { label: title })} href={editURL}>
+            {t('general:edit')}
+          </Link>
+        ) : (
+          row._collectionLabel
+        )}
+      </DocumentCard>
+    )
+  }
+
   if (!rows.length && !isLoading) {
     return (
       <NoListResults
@@ -176,59 +230,24 @@ export function FlatFolderContentsView({
   return (
     <div className="flat-folder-contents">
       {layout === 'grid' ? (
-        <CardGrid
-          ariaLabel={t('general:documents')}
-          getItemClassName={(row) =>
-            isSelected({ id: row.id, collectionSlug: row._collectionSlug })
-              ? 'card-grid__item--selected'
-              : undefined
-          }
-          getKey={(row) => `${row._collectionSlug}:${row.id}`}
-          items={rows}
-          renderItem={(row) => {
-            const isFolder = row._collectionSlug === collectionSlug
-            const config = getEntityConfig({ collectionSlug: row._collectionSlug })
-            const titleField = config.admin.useAsTitle || 'id'
-            const title = String(row[titleField] ?? row.id)
-            const editURL = formatAdminURL({
-              adminRoute,
-              path: `/collections/${row._collectionSlug}/${encodeURIComponent(String(row.id))}`,
-            })
-            const folderURL = getHierarchyListURL({
-              adminRoute,
-              collectionSlug,
-              parentFieldName,
-              parentID: row.id,
-            })
-
-            return (
-              <div className="flat-folder-contents__card">
-                <input
-                  aria-label={t('general:selectLabel', { label: title })}
-                  checked={isSelected({ id: row.id, collectionSlug: row._collectionSlug })}
-                  className="flat-folder-contents__card-selection"
-                  disabled={isLocked({ id: row.id, collectionSlug: row._collectionSlug })}
-                  onChange={() => toggleRow(row)}
-                  type="checkbox"
-                />
-                <DocumentCard
-                  href={isFolder ? folderURL : editURL}
-                  isSelected={isSelected({ id: row.id, collectionSlug: row._collectionSlug })}
-                  placeholder={isFolder ? (HierarchyIcon ?? <FolderIcon />) : <DocumentIcon />}
-                  title={title}
-                >
-                  {isFolder ? (
-                    <Link aria-label={t('general:editLabel', { label: title })} href={editURL}>
-                      {t('general:edit')}
-                    </Link>
-                  ) : (
-                    row._collectionLabel
-                  )}
-                </DocumentCard>
-              </div>
-            )
-          }}
-        />
+        <div className="flat-folder-contents__grids">
+          {cardGroups.map(({ items, key, label }) =>
+            items.length ? (
+              <CardGrid
+                ariaLabel={label}
+                getItemClassName={(row) =>
+                  isSelected({ id: row.id, collectionSlug: row._collectionSlug })
+                    ? 'card-grid__item--selected'
+                    : undefined
+                }
+                getKey={(row) => `${row._collectionSlug}:${row.id}`}
+                items={items}
+                key={key}
+                renderItem={renderCard}
+              />
+            ) : null,
+          )}
+        </div>
       ) : (
         <SlotTable
           collectionSlug={collectionSlug}

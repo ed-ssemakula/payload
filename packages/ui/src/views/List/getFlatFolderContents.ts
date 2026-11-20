@@ -9,6 +9,9 @@ import type {
 import { NotFound } from 'payload'
 import { canAccessAdmin, combineWhereConstraints } from 'payload/shared'
 
+import { getDocumentThumbnail } from '../../utilities/getDocumentThumbnail.js'
+import { getDocumentThumbnailSelect } from '../../utilities/getDocumentThumbnailSelect.js'
+
 export const FLAT_FOLDER_PAGE_SIZE = 10
 
 export type FlatFolderContents = NonNullable<ListViewClientProps['flatFolderContents']>
@@ -207,16 +210,6 @@ export async function getFlatFolderContents({
     const baseFilter = await (
       collectionConfig.admin.baseFilter ?? collectionConfig.admin.baseListFilter
     )?.({ limit: FLAT_FOLDER_PAGE_SIZE, page: 1, req, sort: titleField })
-    const filteredTypes = typeFilter?.filter((slug) => slug !== collectionSlug)
-    const typeCondition =
-      hierarchy.collectionSpecific && filteredTypes?.length
-        ? {
-            or: [
-              { [hierarchy.collectionSpecific.fieldName]: { in: filteredTypes } },
-              { [hierarchy.collectionSpecific.fieldName]: { exists: false } },
-            ],
-          }
-        : undefined
     const folders = await req.payload.find({
       collection: collectionSlug,
       depth: 0,
@@ -235,7 +228,6 @@ export async function getFlatFolderContents({
         { [hierarchy.parentFieldName]: { equals: parentID } },
         baseFilter,
         search ? { [titleField]: { like: search } } : undefined,
-        typeCondition,
       ]),
     })
 
@@ -334,7 +326,10 @@ export async function getFlatFolderContents({
               overrideAccess: false,
               pagination: false,
               req,
-              select: { id: true, [titleField]: true, updatedAt: true },
+              select: getDocumentThumbnailSelect({
+                collectionConfig: config,
+                select: { id: true, [titleField]: true, updatedAt: true },
+              }),
               user: req.user,
               where: combineWhereConstraints([
                 { id: { in: ids } },
@@ -345,7 +340,15 @@ export async function getFlatFolderContents({
             })
 
             for (const doc of docs) {
-              documents.set(JSON.stringify([slug, doc.id]), { ...doc, _collectionSlug: slug })
+              documents.set(JSON.stringify([slug, doc.id]), {
+                id: doc.id,
+                [titleField]: doc[titleField],
+                updatedAt: doc.updatedAt,
+                _collectionSlug: slug,
+                _isLocked: doc._isLocked,
+                _thumbnailSrc: config.upload ? getDocumentThumbnail({ doc }) : undefined,
+                _userEditing: doc._userEditing,
+              })
             }
           }),
         )

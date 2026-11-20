@@ -101,6 +101,7 @@ function HierarchyListContent(props: ListViewClientProps) {
     collectionConfig?.hierarchy && typeof collectionConfig.hierarchy === 'object'
       ? collectionConfig.hierarchy
       : undefined
+  const isFolderHierarchy = hierarchyConfig?.allowHasMany === false
   const parentFieldName = hierarchyConfig?.parentFieldName
 
   const { i18n, t } = useTranslation()
@@ -238,7 +239,8 @@ function HierarchyListContent(props: ListViewClientProps) {
             parentID: parentId,
             search: searchFromURL || undefined,
             source,
-            typeFilter: typeFilterFromURL ? typeFilterFromURL.split(',') : undefined,
+            typeFilter:
+              typeFilterFromURL !== null ? typeFilterFromURL.split(',').filter(Boolean) : undefined,
           },
         })) as FlatFolderContents
         if (
@@ -391,8 +393,13 @@ function HierarchyListContent(props: ListViewClientProps) {
   }, [allowedCollections, getEntityConfig, hierarchyConfig?.relatedCollections, i18n])
 
   const selectedTypes = useMemo(
-    () => (typeFilterFromURL ? typeFilterFromURL.split(',') : typeOptions.map((opt) => opt.value)),
-    [typeFilterFromURL, typeOptions],
+    () =>
+      typeFilterFromURL !== null && (isFolderHierarchy || typeFilterFromURL)
+        ? isFolderHierarchy
+          ? typeFilterFromURL.split(',').filter(Boolean)
+          : typeFilterFromURL.split(',')
+        : typeOptions.map((opt) => opt.value),
+    [isFolderHierarchy, typeFilterFromURL, typeOptions],
   )
 
   // Update URL when type filter changes
@@ -406,7 +413,7 @@ function HierarchyListContent(props: ListViewClientProps) {
 
       // Only add typeFilter if not all types are selected
       const allSelected = values.length === typeOptions.length
-      if (!allSelected && values.length > 0) {
+      if (!allSelected && (isFolderHierarchy || values.length > 0)) {
         currentParams.typeFilter = values.join(',')
       } else {
         delete currentParams.typeFilter
@@ -420,7 +427,7 @@ function HierarchyListContent(props: ListViewClientProps) {
         void startRouteTransition(() => router.replace(newUrl))
       }
     },
-    [router, searchParams, startRouteTransition, typeOptions.length],
+    [isFolderHierarchy, router, searchParams, startRouteTransition, typeOptions.length],
   )
 
   // Filter children based on selected types (client-side for immediate feedback)
